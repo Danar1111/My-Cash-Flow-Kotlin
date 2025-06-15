@@ -1,5 +1,6 @@
 package com.example.mymoneynotes
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,12 +20,14 @@ import com.example.mymoneynotes.AddEditTransactionScreen
 import com.example.mymoneynotes.TransactionListScreen
 import com.example.mymoneynotes.ReportScreen
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import com.example.mymoneynotes.util.ExportUtils
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: TransactionViewModel by viewModels()
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -41,7 +44,15 @@ class MainActivity : ComponentActivity() {
                                 if (id == null) {
                                     viewModel.addTransaction(type, category, amount, date)
                                 } else {
-                                    viewModel.updateTransaction(Transaction(id, type, category, amount, date))
+                                    viewModel.updateTransaction(
+                                        Transaction(
+                                            id,
+                                            type,
+                                            category,
+                                            amount,
+                                            date
+                                        )
+                                    )
                                 }
                                 showForm = false
                             },
@@ -52,9 +63,14 @@ class MainActivity : ComponentActivity() {
                             onCancel = { showForm = false }
                         )
                     }
+
                     showReport -> {
-                        ReportScreen(onBack = { showReport = false }, transactions = viewModel.transactions)
+                        ReportScreen(
+                            onBack = { showReport = false },
+                            transactions = viewModel.transactions
+                        )
                     }
+
                     else -> {
                         TransactionListScreen(
                             transactions = viewModel.transactions,
@@ -69,9 +85,14 @@ class MainActivity : ComponentActivity() {
                             onExportPdf = {
                                 val file = ExportUtils.export(this, viewModel.transactions)
                                 if (file != null) {
-                                    Toast.makeText(this, "PDF disimpan di ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        this,
+                                        "PDF disimpan di ${file.absolutePath}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 } else {
-                                    Toast.makeText(this, "Gagal membuat PDF", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(this, "Gagal membuat PDF", Toast.LENGTH_LONG)
+                                        .show()
                                 }
                             },
                             onReport = { showReport = true }
