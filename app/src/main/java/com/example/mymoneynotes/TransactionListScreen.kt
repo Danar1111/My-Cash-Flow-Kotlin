@@ -3,9 +3,10 @@ package com.example.mymoneynotes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.material.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.mymoneynotes.model.Transaction
@@ -22,11 +23,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 @Composable
 fun TransactionListScreen(
     transactions: List<Transaction>,
-    onAddClicked: () -> Unit
+    onAddClicked: () -> Unit,
+    onItemClick: (Transaction) -> Unit,
+    onExportPdf: () -> Unit,
+    onReport: () -> Unit
 ) {
+    val categories = listOf("Semua") + transactions.map { it.category }.distinct()
+    var selectedCategory by remember { mutableStateOf("Semua") }
+    val shown = remember(transactions, selectedCategory) {
+        if (selectedCategory == "Semua") transactions else transactions.filter { it.category == selectedCategory }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("MyMoney Notes") })
+            TopAppBar(
+                title = { Text("MyMoney Notes") },
+                actions = {
+                    IconButton(onClick = onExportPdf) { Text("PDF") }
+                    IconButton(onClick = onReport) { Text("Rekap") }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddClicked) {
@@ -41,15 +57,40 @@ fun TransactionListScreen(
             TotalBalance(transactions)
             TransactionChart(transactions)
 
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Filter:")
+                Spacer(Modifier.width(8.dp))
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    Button(onClick = { expanded = true }) {
+                        Text(selectedCategory)
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        categories.forEach { cat ->
+                            DropdownMenuItem(text = { Text(cat) }, onClick = {
+                                selectedCategory = cat
+                                expanded = false
+                            })
+                        }
+                    }
+                }
+            }
+
             LazyColumn {
-                items(transactions) { transaction ->
+                items(shown) { transaction ->
                     val isIncome = transaction.type == TransactionType.INCOME
                     val labelColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336) // Hijau / Merah
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(8.dp),
+                            .padding(8.dp)
+                            .clickable { onItemClick(transaction) },
                         elevation = CardDefaults.cardElevation(4.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White)
                     ) {
