@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,6 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +30,6 @@ fun TransactionListScreen(
     transactions: List<Transaction>,
     onAddClicked: () -> Unit,
     onItemClick: (Transaction) -> Unit,
-    onExportPdf: () -> Unit,
     onReport: () -> Unit
 ) {
     val categories = listOf("Semua") + transactions.map { it.category }.distinct()
@@ -41,14 +42,27 @@ fun TransactionListScreen(
         }
     }
 
+    var sort by remember { mutableStateOf(1) } //1=newest,0=oldest,2=amount asc,3=amount desc
+    var showAll by remember { mutableStateOf(false) }
+
+    val filtered = remember(shown, sort) {
+        val base = when (sort) {
+            0 -> shown.sortedBy { it.date }
+            1 -> shown.sortedByDescending { it.date }
+            2 -> shown.sortedBy { it.amount }
+            3 -> shown.sortedByDescending { it.amount }
+            else -> shown
+        }
+        base
+    }
+
+    val displayList = if (showAll || filtered.size <= 50) filtered else filtered.take(50)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("MyMoney Notes") },
                 actions = {
-                    IconButton(onClick = onExportPdf) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF")
-                    }
                     IconButton(onClick = onReport) {
                         Icon(Icons.Default.Assessment, contentDescription = "Laporan")
                     }
@@ -101,8 +115,35 @@ fun TransactionListScreen(
                 FilterChip(selected = filterType == 2, onClick = { filterType = 2 }, label = { Text("Pengeluaran") })
             }
 
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Sort:")
+                Spacer(Modifier.width(8.dp))
+                var exp by remember { mutableStateOf(false) }
+                val label = when (sort) {
+                    0 -> "Tanggal Terlama"
+                    1 -> "Tanggal Terbaru"
+                    2 -> "Nominal Kecil"
+                    3 -> "Nominal Besar"
+                    else -> "Tanggal Terbaru"
+                }
+                Box {
+                    Button(onClick = { exp = true }) { Text(label) }
+                    DropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
+                        DropdownMenuItem(text = { Text("Tanggal Terlama") }, onClick = { sort = 0; exp = false })
+                        DropdownMenuItem(text = { Text("Tanggal Terbaru") }, onClick = { sort = 1; exp = false })
+                        DropdownMenuItem(text = { Text("Nominal Kecil") }, onClick = { sort = 2; exp = false })
+                        DropdownMenuItem(text = { Text("Nominal Besar") }, onClick = { sort = 3; exp = false })
+                    }
+                }
+            }
+
             LazyColumn {
-                items(shown) { transaction ->
+                items(displayList) { transaction ->
                     val isIncome = transaction.type == TransactionType.INCOME
                     val labelColor = if (isIncome) Color(0xFF4CAF50) else Color(0xFFF44336) // Hijau / Merah
 
@@ -134,11 +175,25 @@ fun TransactionListScreen(
                             ) {
                                 // Kategori di kiri atas
                                 Text(text = transaction.category)
+                                Text(
+                                    DateTimeFormatter.ISO_DATE.format(
+                                        java.time.Instant.ofEpochMilli(transaction.date).atZone(ZoneId.systemDefault()).toLocalDate()
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
 
                                 // Jumlah di bawah kategori
                                 Text(text = "Rp ${"%,.0f".format(transaction.amount)}")
                             }
                         }
+                    }
+                }
+                if (!showAll && filtered.size > 50) {
+                    item {
+                        TextButton(
+                            onClick = { showAll = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Tampilkan Semua") }
                     }
                 }
             }
