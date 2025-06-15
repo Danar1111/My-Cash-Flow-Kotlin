@@ -7,9 +7,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.mymoneynotes.model.Transaction
 import com.example.mymoneynotes.model.TransactionType
-import java.time.LocalDate
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,15 +25,14 @@ fun AddEditTransactionScreen(
     var type by remember { mutableStateOf(transaction?.type ?: TransactionType.INCOME) }
     var category by remember { mutableStateOf(transaction?.category ?: "") }
     var amount by remember { mutableStateOf(transaction?.amount?.toString() ?: "") }
-    var dateText by remember {
-        mutableStateOf(
-            transaction?.date?.let {
-                DateTimeFormatter.ISO_DATE.format(
-                    java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                )
-            } ?: ""
+    var dateMillis by remember { mutableStateOf(transaction?.date ?: System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatted = remember(dateMillis) {
+        DateTimeFormatter.ISO_DATE.format(
+            Instant.ofEpochMilli(dateMillis).atZone(ZoneId.systemDefault()).toLocalDate()
         )
     }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
 
     Scaffold(
         topBar = {
@@ -75,12 +77,32 @@ fun AddEditTransactionScreen(
                 singleLine = true
             )
 
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            dateMillis = datePickerState.selectedDateMillis ?: dateMillis
+                            showDatePicker = false
+                        }) { Text("OK") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) { Text("Batal") }
+                    }
+                ) { DatePicker(state = datePickerState) }
+            }
+
             OutlinedTextField(
-                value = dateText,
-                onValueChange = { dateText = it },
-                label = { Text("Tanggal (yyyy-MM-dd)") },
+                value = dateFormatted,
+                onValueChange = {},
+                label = { Text("Tanggal") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                readOnly = true,
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = null)
+                    }
+                }
             )
 
             Row(
@@ -96,16 +118,12 @@ fun AddEditTransactionScreen(
                     }
                 }
                 Button(onClick = {
-                    val date = try {
-                        LocalDate.parse(dateText, DateTimeFormatter.ISO_DATE)
-                    } catch (e: DateTimeParseException) {
-                        LocalDate.now()
-                    }
+                    dateMillis = datePickerState.selectedDateMillis ?: dateMillis
                     onSave(
                         type,
                         category,
                         amount.toDoubleOrNull() ?: 0.0,
-                        date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                        dateMillis,
                         transaction?.id
                     )
                 }) {

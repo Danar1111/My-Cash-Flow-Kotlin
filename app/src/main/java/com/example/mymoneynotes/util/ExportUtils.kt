@@ -10,18 +10,18 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 object ExportUtils {
-    fun export(context: Context, transactions: List<Transaction>) {
-        try {
+    fun export(context: Context, transactions: List<Transaction>): File? {
+        return try {
             val doc = PdfDocument()
-            val page = doc.startPage(PdfDocument.PageInfo.Builder(300, 600, 1).create())
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
             val canvas = page.canvas
-            var y = 20
+            var y = 40
             val paint = android.graphics.Paint()
             transactions.forEach { t ->
                 val date = DateTimeFormatter.ISO_DATE.format(
                     java.time.Instant.ofEpochMilli(t.date).atZone(ZoneId.systemDefault()).toLocalDate()
                 )
-                canvas.drawText("$date - ${t.category} : ${t.amount}", 10f, y.toFloat(), paint)
+                canvas.drawText("$date - ${t.category} : ${t.amount}", 20f, y.toFloat(), paint)
                 y += 20
             }
             doc.finishPage(page)
@@ -30,8 +30,10 @@ object ExportUtils {
             val file = File(dir, "transactions.pdf")
             FileOutputStream(file).use { out -> doc.writeTo(out) }
             doc.close()
+            file
         } catch (e: Exception) {
             e.printStackTrace()
+            null
         }
     }
 }
