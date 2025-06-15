@@ -1,5 +1,6 @@
 package com.example.mymoneynotes
 
+import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -18,11 +19,16 @@ import com.example.mymoneynotes.model.Transaction
 import com.example.mymoneynotes.model.TransactionType
 import com.example.mymoneynotes.util.ExportUtils
 import android.widget.Toast
+import androidx.annotation.RequiresApi
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.nativeCanvas
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
@@ -41,6 +47,7 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
             )
         } ?: ""
     }
+
     val endText = remember(endMillis) {
         endMillis?.let {
             DateTimeFormatter.ISO_DATE.format(
@@ -52,8 +59,28 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
     val startState = rememberDatePickerState(initialSelectedDateMillis = startMillis)
     val endState = rememberDatePickerState(initialSelectedDateMillis = endMillis)
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Laporan") }) }) { padding ->
-        Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Laporan") },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val file = ExportUtils.export(context, filtered)
+                            if (file != null) {
+                                Toast.makeText(context, "PDF disimpan di ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Gagal membuat PDF", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+    Column(
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
@@ -100,6 +127,7 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
                     }
                 }
             )
+
             OutlinedTextField(
                 value = endText,
                 onValueChange = {},
@@ -112,8 +140,13 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
                     }
                 }
             )
+
+            Spacer(Modifier.height(8.dp))
+
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Button(onClick = onBack) { Text("Kembali") }
@@ -123,16 +156,6 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
                                 (endMillis == null || t.date <= endMillis!!)
                     }
                 }) { Text("Terapkan") }
-                IconButton(onClick = {
-                    val file = ExportUtils.export(context, filtered)
-                    if (file != null) {
-                        Toast.makeText(context, "PDF disimpan di ${file.absolutePath}", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(context, "Gagal membuat PDF", Toast.LENGTH_LONG).show()
-                    }
-                }) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF")
-                }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -185,6 +208,7 @@ fun ReportScreen(onBack: () -> Unit, transactions: List<Transaction>) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun BalanceChart(transactions: List<Transaction>) {
     if (transactions.isEmpty()) return
@@ -195,35 +219,81 @@ private fun BalanceChart(transactions: List<Transaction>) {
         balance += if (it.type == TransactionType.INCOME) it.amount else -it.amount
         balance
     }
+
     val max = points.maxOrNull() ?: 0.0
     val min = points.minOrNull() ?: 0.0
     val range = (max - min).takeIf { it > 0 } ?: 1.0
 
-    Canvas(modifier = Modifier
-        .fillMaxWidth()
-        .height(180.dp)
-        .padding(vertical = 8.dp)) {
-        val stepX = size.width / (points.lastIndex.coerceAtLeast(1).toFloat())
-        val textPaint = android.graphics.Paint().apply { textSize = 24f }
-        var previous = Offset(0f, size.height * (1f - ((points.first() - min) / range).toFloat()))
+    val dateLabels = sorted.map {
+        DateTimeFormatter.ofPattern("dd/MM").format(
+            Instant.ofEpochMilli(it.date).atZone(ZoneId.systemDefault()).toLocalDate()
+        )
+    }
+
+    val yStepCount = 5
+    val yStepSize = range / yStepCount
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        val leftPadding = 200f
+        val xOffset = 12f
+        val bottomPadding = 50f
+        val stepX = (size.width - leftPadding) / (points.lastIndex.coerceAtLeast(1).toFloat())
+        val chartHeight = size.height - bottomPadding
+
+        val yLabelPaint = android.graphics.Paint().apply {
+            textSize = 32f
+            isAntiAlias = true
+        }
+
+        val xLabelPaint = android.graphics.Paint().apply {
+            textSize = 30f
+            isAntiAlias = true
+        }
+
+        // Garis bantu dan label sumbu Y
+        for (i in 0..yStepCount) {
+            val yValue = min + (yStepSize * i)
+            val yPos = chartHeight * (1f - ((yValue - min) / range).toFloat())
+
+            drawContext.canvas.nativeCanvas.drawText(
+                "Rp ${"%,.0f".format(yValue)}",
+                0f,
+                yPos,
+                yLabelPaint
+            )
+
+            drawLine(
+                color = Color.LightGray,
+                start = Offset(leftPadding, yPos),
+                end = Offset(size.width, yPos),
+                strokeWidth = 1f
+            )
+        }
+
+        // Garis grafik
+        var previous = Offset(
+            leftPadding + xOffset,
+            chartHeight * (1f - ((points.first() - min) / range).toFloat())
+        )
         points.forEachIndexed { index, value ->
-            val x = stepX * index
-            val y = size.height * (1f - ((value - min) / range).toFloat())
+            val x = leftPadding + (stepX * index) + xOffset
+            val y = chartHeight * (1f - ((value - min) / range).toFloat())
+
             if (index > 0) {
                 drawLine(Color.Blue, previous, Offset(x, y), strokeWidth = 4f)
             }
-            drawContext.canvas.nativeCanvas.drawText(
-                "${DateTimeFormatter.ISO_DATE.format(Instant.ofEpochMilli(sorted[index].date).atZone(ZoneId.systemDefault()).toLocalDate())}",
-                x,
-                size.height + 20,
-                textPaint
-            )
-            drawContext.canvas.nativeCanvas.drawText(
-                "${"%,.0f".format(value)}",
-                x,
-                y - 4,
-                textPaint
-            )
+
+            // Label tanggal sumbu X (miring 45°)
+            drawContext.canvas.nativeCanvas.save()
+            drawContext.canvas.nativeCanvas.rotate(-45f, x, size.height)
+            drawContext.canvas.nativeCanvas.drawText(dateLabels[index], x - 20f, size.height, xLabelPaint)
+            drawContext.canvas.nativeCanvas.restore()
+
             previous = Offset(x, y)
         }
     }

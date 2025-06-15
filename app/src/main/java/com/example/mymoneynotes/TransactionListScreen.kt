@@ -1,5 +1,7 @@
 package com.example.mymoneynotes
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.Instant
+import androidx.compose.ui.text.style.TextOverflow
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionListScreen(
@@ -61,7 +65,7 @@ fun TransactionListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("MyMoney Notes") },
+                title = { Text("My Cash Flow") },
                 actions = {
                     IconButton(onClick = onReport) {
                         Icon(Icons.Default.Assessment, contentDescription = "Laporan")
@@ -84,21 +88,55 @@ fun TransactionListScreen(
 
             Row(
                 Modifier
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Kategori:")
-                Spacer(Modifier.width(8.dp))
-                var expanded by remember { mutableStateOf(false) }
-                Box {
-                    Button(onClick = { expanded = true }) { Text(selectedCategory) }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        categories.forEach { cat ->
-                            DropdownMenuItem(text = { Text(cat) }, onClick = {
-                                selectedCategory = cat
-                                expanded = false
-                            })
+                // Kategori
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Kategori:")
+                    Spacer(Modifier.width(8.dp))
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        Button(onClick = { expanded = true }) {
+                            Text(
+                                text = selectedCategory,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 80.dp)
+                            )
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(text = { Text(cat) }, onClick = {
+                                    selectedCategory = cat
+                                    expanded = false
+                                })
+                            }
+                        }
+                    }
+                }
+
+                // Sort
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Sort:")
+                    Spacer(Modifier.width(8.dp))
+                    var exp by remember { mutableStateOf(false) }
+                    val label = when (sort) {
+                        0 -> "Tanggal Terlama"
+                        1 -> "Tanggal Terbaru"
+                        2 -> "Nominal Kecil"
+                        3 -> "Nominal Besar"
+                        else -> "Tanggal Terbaru"
+                    }
+                    Box {
+                        Button(onClick = { exp = true }) { Text(label) }
+                        DropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
+                            DropdownMenuItem(text = { Text("Tanggal Terlama") }, onClick = { sort = 0; exp = false })
+                            DropdownMenuItem(text = { Text("Tanggal Terbaru") }, onClick = { sort = 1; exp = false })
+                            DropdownMenuItem(text = { Text("Nominal Kecil") }, onClick = { sort = 2; exp = false })
+                            DropdownMenuItem(text = { Text("Nominal Besar") }, onClick = { sort = 3; exp = false })
                         }
                     }
                 }
@@ -113,33 +151,6 @@ fun TransactionListScreen(
                 FilterChip(selected = filterType == 0, onClick = { filterType = 0 }, label = { Text("Semua") })
                 FilterChip(selected = filterType == 1, onClick = { filterType = 1 }, label = { Text("Pemasukan") })
                 FilterChip(selected = filterType == 2, onClick = { filterType = 2 }, label = { Text("Pengeluaran") })
-            }
-
-            Row(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Sort:")
-                Spacer(Modifier.width(8.dp))
-                var exp by remember { mutableStateOf(false) }
-                val label = when (sort) {
-                    0 -> "Tanggal Terlama"
-                    1 -> "Tanggal Terbaru"
-                    2 -> "Nominal Kecil"
-                    3 -> "Nominal Besar"
-                    else -> "Tanggal Terbaru"
-                }
-                Box {
-                    Button(onClick = { exp = true }) { Text(label) }
-                    DropdownMenu(expanded = exp, onDismissRequest = { exp = false }) {
-                        DropdownMenuItem(text = { Text("Tanggal Terlama") }, onClick = { sort = 0; exp = false })
-                        DropdownMenuItem(text = { Text("Tanggal Terbaru") }, onClick = { sort = 1; exp = false })
-                        DropdownMenuItem(text = { Text("Nominal Kecil") }, onClick = { sort = 2; exp = false })
-                        DropdownMenuItem(text = { Text("Nominal Besar") }, onClick = { sort = 3; exp = false })
-                    }
-                }
             }
 
             LazyColumn {
@@ -174,7 +185,12 @@ fun TransactionListScreen(
                                 modifier = Modifier.align(Alignment.TopStart)
                             ) {
                                 // Kategori di kiri atas
-                                Text(text = transaction.category)
+                                Text(
+                                    text = transaction.category,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 300.dp)
+                                )
                                 Text(
                                     DateTimeFormatter.ISO_DATE.format(
                                         java.time.Instant.ofEpochMilli(transaction.date).atZone(ZoneId.systemDefault()).toLocalDate()
