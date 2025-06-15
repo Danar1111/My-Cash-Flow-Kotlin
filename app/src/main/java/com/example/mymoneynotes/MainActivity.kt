@@ -18,9 +18,8 @@ import com.example.mymoneynotes.ui.theme.MyMoneyNotesTheme
 import com.example.mymoneynotes.AddEditTransactionScreen
 import com.example.mymoneynotes.TransactionListScreen
 import com.example.mymoneynotes.ReportScreen
+import android.widget.Toast
 import com.example.mymoneynotes.util.ExportUtils
-import java.lang.System
-import java.lang.System
 
 class MainActivity : ComponentActivity() {
 
@@ -67,7 +66,14 @@ class MainActivity : ComponentActivity() {
                                 current = it
                                 showForm = true
                             },
-                            onExportPdf = { ExportUtils.export(this, viewModel.transactions) },
+                            onExportPdf = {
+                                val file = ExportUtils.export(this, viewModel.transactions)
+                                if (file != null) {
+                                    Toast.makeText(this, "PDF disimpan di ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(this, "Gagal membuat PDF", Toast.LENGTH_LONG).show()
+                                }
+                            },
                             onReport = { showReport = true }
                         )
                     }

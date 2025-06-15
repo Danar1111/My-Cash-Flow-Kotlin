@@ -5,6 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -30,8 +33,12 @@ fun TransactionListScreen(
 ) {
     val categories = listOf("Semua") + transactions.map { it.category }.distinct()
     var selectedCategory by remember { mutableStateOf("Semua") }
-    val shown = remember(transactions, selectedCategory) {
-        if (selectedCategory == "Semua") transactions else transactions.filter { it.category == selectedCategory }
+    var filterType by remember { mutableStateOf<Int>(0) } //0=all,1=income,2=expense
+    val shown = remember(transactions, selectedCategory, filterType) {
+        transactions.filter { t ->
+            (filterType == 0 || (filterType == 1 && t.type == TransactionType.INCOME) || (filterType == 2 && t.type == TransactionType.EXPENSE)) &&
+                    (selectedCategory == "Semua" || t.category == selectedCategory)
+        }
     }
 
     Scaffold(
@@ -39,8 +46,12 @@ fun TransactionListScreen(
             TopAppBar(
                 title = { Text("MyMoney Notes") },
                 actions = {
-                    IconButton(onClick = onExportPdf) { Text("PDF") }
-                    IconButton(onClick = onReport) { Text("Rekap") }
+                    IconButton(onClick = onExportPdf) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF")
+                    }
+                    IconButton(onClick = onReport) {
+                        Icon(Icons.Default.Assessment, contentDescription = "Laporan")
+                    }
                 }
             )
         },
@@ -63,13 +74,11 @@ fun TransactionListScreen(
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Filter:")
+                Text("Kategori:")
                 Spacer(Modifier.width(8.dp))
                 var expanded by remember { mutableStateOf(false) }
                 Box {
-                    Button(onClick = { expanded = true }) {
-                        Text(selectedCategory)
-                    }
+                    Button(onClick = { expanded = true }) { Text(selectedCategory) }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         categories.forEach { cat ->
                             DropdownMenuItem(text = { Text(cat) }, onClick = {
@@ -79,6 +88,17 @@ fun TransactionListScreen(
                         }
                     }
                 }
+            }
+
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(selected = filterType == 0, onClick = { filterType = 0 }, label = { Text("Semua") })
+                FilterChip(selected = filterType == 1, onClick = { filterType = 1 }, label = { Text("Pemasukan") })
+                FilterChip(selected = filterType == 2, onClick = { filterType = 2 }, label = { Text("Pengeluaran") })
             }
 
             LazyColumn {
